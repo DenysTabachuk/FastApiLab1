@@ -1,6 +1,5 @@
 from datetime import timedelta
 from fastapi import FastAPI, Depends, Request, HTTPException, Form, status
-# from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from . import  models, schemas, crud, auth
@@ -8,11 +7,14 @@ from .database import SessionLocal, engine
 from .config import ACCESS_TOKEN_EXPIRE_MINUTES
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import HTTPException, Form, Depends
+from sqlalchemy.orm import Session
 
 import logging
 
 # Налаштування логування
-logging.basicConfig(level=logging.INFO)  # або DEBUG для більш детальних логів
+logging.basicConfig(level=logging.INFO) 
 logger = logging.getLogger('uvicorn.error')
 
 
@@ -58,9 +60,6 @@ def register_user(
 def show_login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
-from fastapi.responses import JSONResponse, RedirectResponse
-from fastapi import HTTPException, Form, Depends
-from sqlalchemy.orm import Session
 
 @app.post("/login/")
 def login(
