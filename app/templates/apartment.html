@@ -7,5 +7,48 @@
   />
   <p><strong>Ціна:</strong> {{ apartment.price }} грн</p>
   <p class="description"><strong>Опис:</strong> {{ apartment.description }}</p>
+  <p>
+    <strong>Контактна особа:</strong> {{ owner.first_name }} {{ owner.last_name
+    }}
+  </p>
+  <p><strong>Телефон:</strong> {{ owner.phone }}</p>
+
+  {% if is_owner %}
+  <form action="/apartments/{{ apartment.id }}/edit/" method="get">
+    <button>Редагувати</button>
+  </form>
+  <form onSubmit="deleteApartment({{ apartment.id }})">
+    <button>Видалити</button>
+  </form>
+  {% else %}
+  <form action="">
+    <button>Забронювати</button>
+  </form>
+  {% endif %}
 </div>
+
+<script>
+  function deleteApartment(apartmentId) {
+    if (confirm("Ви впевнені, що хочете видалити це оголошення?")) {
+      fetch(`/apartments/${apartmentId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "same-origin", // Для збереження кукі
+      })
+        .then((response) => {
+          if (response.ok) {
+            window.location.href = "/";
+          } else {
+            alert("Щось пішло не так при видаленні.");
+          }
+        })
+        .catch((error) => {
+          alert("Помилка: " + error);
+        });
+    }
+  }
+</script>
+
 {% endblock %}

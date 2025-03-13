@@ -12,6 +12,7 @@ class User(Base):
     first_name = Column(String(100))
     last_name = Column(String(100))
     phone = Column(String(10))
+    is_admin = Column(Boolean, default=False)
 
 
 class Apartment(Base):

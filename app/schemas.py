@@ -24,3 +24,9 @@ class ApartmentCreate(BaseModel):
     price: float
     location: str
     owner_id: int
+
+class ApartmentUpdate(BaseModel):
+    title: str
+    description: str
+    price: float
+    location: str
