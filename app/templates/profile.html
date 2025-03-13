@@ -1,0 +1,22 @@
+{% extends "base.html" %} {% block content %}
+<div>
+  <h2>Профіль користувача</h2>
+  <p>Вітаємо, {{ user.first_name }} {{user.last_name }}!</p>
+  <p>Ваш номер: {{ user.phone }}</p>
+  <p>Ваша електронна адреса: {{ user.email }}</p>
+
+  <br />
+  <h2>Ваші оголошення</h2>
+  <p>Поки пусто</p>
+
+  <br />
+
+  <form action="/apartments/" method="get">
+    <button>Додати нове оголошення</button>
+  </form>
+
+  <form action="/logout/" method="post">
+    <button>Вийти</button>
+  </form>
+</div>
+{% endblock %}

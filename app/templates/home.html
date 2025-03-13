@@ -1,4 +1,11 @@
-{% extends "base.html" %} {% block title %}Register{% endblock %} {% block
-content %}
-<h2>Головна сторінка</h2>
+{% extends "base.html" %} {% block content %}
+<h1>Головна сторінка</h1>
+
+  <div id="apartment_container">
+    {% if apartments %} {% for apartment in apartments %} {% include
+    "apartment_item.html" %} {% endfor %} {% else %}
+    <p>На жаль, наразі немає доступних квартир.</p>
+    {% endif %}
+  </div>
+</div>
 {% endblock %}

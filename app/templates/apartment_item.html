@@ -1,0 +1,14 @@
+<div class="apartment-item">
+  <img
+    src="{{ url_for('static', path='images/default-image.jpg') }}"
+    alt="Image"
+  />
+  <h2>{{ apartment.title}}</h2>
+  <p><strong>Ціна:</strong> {{ apartment.price}} грн/місяць</p>
+  <p><strong>Локація:</strong> {{ apartment.location }}</p>
+  <div>
+    <a href="/apartments/{{ apartment.id }}">
+      <button>Переглянути</button>
+    </a>
+  </div>
+</div>

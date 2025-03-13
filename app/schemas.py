@@ -1,13 +1,26 @@
 from pydantic import BaseModel
 
 class UserCreate(BaseModel):
-    username: str
-    password: str
     email: str
+    password: str
+    first_name: str
+    last_name: str
+    phone: str
 
-class UserInDB(UserCreate):
-    hashed_password: str
+class User(BaseModel):
+    email: str
+    first_name: str
+    last_name: str
+    phone: str
 
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+class ApartmentCreate(BaseModel):
+    title: str
+    description: str
+    price: float
+    location: str
+    owner_id: int

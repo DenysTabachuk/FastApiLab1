@@ -1,0 +1,11 @@
+{% extends "base.html" %} {% block content %}
+<div class="apartment-block">
+  <h2>{{ apartment.title }}</h2>
+  <img
+    src="{{ url_for('static', path='images/default-image.jpg') }}"
+    alt="Image"
+  />
+  <p><strong>Ціна:</strong> {{ apartment.price }} грн</p>
+  <p class="description"><strong>Опис:</strong> {{ apartment.description }}</p>
+</div>
+{% endblock %}

@@ -3,17 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{% block title %}My App{% endblock %}</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <title>RentalUA</title>
+    <link rel="stylesheet" href="/static/style.css?ver=1.2" />
   </head>
   <body>
     <header>
       <nav>
-        <ul>
-          <li><a href="/">Home</a></li>
-          <li><a href="/register">Register</a></li>
-          <li><a href="/login">Login</a></li>
-        </ul>
+        <ul id="nav-links"></ul>
       </nav>
     </header>
 
@@ -23,5 +19,35 @@
     <footer>
       <p>&copy; 2025 RentalUA</p>
     </footer>
+
+    <script>
+      function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+      }
+
+      function updateNavigation() {
+        const token = getCookie("is_logged_in");
+        const navLinks = document.getElementById("nav-links");
+
+        console.log(getCookie());
+        if (token) {
+          navLinks.innerHTML = `
+            <li><a href="/">Home</a></li>
+            <li><a href="/profile">Profile</a></li>
+          `;
+        } else {
+          navLinks.innerHTML = `
+            <li><a href="/">Home</a></li>
+            <li><a href="/register">Register</a></li>
+            <li><a href="/login">Login</a></li>
+          `;
+        }
+      }
+
+      // Оновлення навігації при завантаженні сторінки
+      updateNavigation();
+    </script>
   </body>
 </html>
