@@ -5,7 +5,10 @@
   />
   <h2>{{ apartment.title}}</h2>
   <p><strong>Ціна:</strong> {{ apartment.price}} грн/місяць</p>
-  <p><strong>Локація:</strong> {{ apartment.location }}</p>
+  <p>
+    <strong>Локація:</strong> {{ apartment.location.city }}, {{
+    apartment.location.street }}, буд. {{ apartment.location.house_number }}
+  </p>
   <div>
     <a href="/apartments/{{ apartment.id }}">
       <button>Переглянути</button>

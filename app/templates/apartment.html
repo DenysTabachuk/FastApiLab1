@@ -12,6 +12,10 @@
     }}
   </p>
   <p><strong>Телефон:</strong> {{ owner.phone }}</p>
+  <p>
+    <strong>Адреса:</strong> {{ apartment.location.city }}, вул. {{
+    apartment.location.street }}, буд. {{ apartment.location.house_number }}
+  </p>
 
   {% if is_owner %}
   <form action="/apartments/{{ apartment.id }}/edit/" method="get">

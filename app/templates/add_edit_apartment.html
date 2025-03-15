@@ -1,13 +1,12 @@
-{% extends "base.html" %} {% block content %}
+{% extends "base.html" %}
+
+{% block content %}
 <div class="form-container">
   <h2>
-    {% if apartment %}Редагувати оголошення{% else %}Додати нове оголошення{%
-    endif %}
+    {% if apartment %}Редагувати оголошення{% else %}Додати нове оголошення{% endif %}
   </h2>
-  <form
-    action="{% if apartment %}/apartments/{{ apartment.id }}/edit/{% else %}/apartments/{% endif %}"
-    method="post"
-  >
+  <form id="apartment-form" method="post" action="/apartments/" onsubmit="return false;">
+
     <input
       type="hidden"
       name="apartment_id"
@@ -20,13 +19,17 @@
       id="title"
       name="title"
       value="{{ apartment.title if apartment else '' }}"
+      minlength="5"
       required
     />
 
     <label for="description">Опис:</label>
-    <textarea id="description" name="description" required>
-{{ apartment.description if apartment else '' }}</textarea
-    >
+    <textarea 
+      id="description" 
+      name="description" 
+      required
+      minlength="10"
+      >{{ apartment.description if apartment else '' }}</textarea>
 
     <label for="price">Ціна:</label>
     <input
@@ -35,15 +38,40 @@
       name="price"
       step="0.01"
       value="{{ apartment.price if apartment else '' }}"
+      min ="0"
       required
     />
 
-    <label for="location">Локація:</label>
+    <label for="city">Місто:</label>
+    <select id="city" name="city" required>
+      <option value="">Оберіть місто</option>
+      <option value="Київ" {% if apartment and apartment.location and apartment.location.city == 'Київ' %}selected{% endif %}>Київ</option>
+      <option value="Львів" {% if apartment and apartment.location and apartment.location.city == 'Львів' %}selected{% endif %}>Львів</option>
+      <option value="Одеса" {% if apartment and apartment.location and apartment.location.city == 'Одеса' %}selected{% endif %}>Одеса</option>
+      <option value="Харків" {% if apartment and apartment.location and apartment.location.city == 'Харків' %}selected{% endif %}>Харків</option>
+      <option value="Дніпро" {% if apartment and apartment.location and apartment.location.city == 'Дніпро' %}selected{% endif %}>Дніпро</option>
+      <option value="Запоріжжя" {% if apartment and apartment.location and apartment.location.city == 'Запоріжжя' %}selected{% endif %}>Запоріжжя</option>
+      <option value="Кривий Ріг" {% if apartment and apartment.location and apartment.location.city == 'Кривий Ріг' %}selected{% endif %}>Кривий Ріг</option>
+      <option value="Миколаїв" {% if apartment and apartment.location and apartment.location.city == 'Миколаїв' %}selected{% endif %}>Миколаїв</option>
+      <option value="Черкаси" {% if apartment and apartment.location and apartment.location.city == 'Черкаси' %}selected{% endif %}>Черкаси</option>
+    </select>
+
+    <label for="street">Вулиця:</label>
     <input
       type="text"
-      id="location"
-      name="location"
-      value="{{ apartment.location if apartment else '' }}"
+      id="street"
+      name="street"
+      value="{{ apartment.location.street if apartment and apartment.location else '' }}"
+      minlength="3"
+      required
+    />
+
+    <label for="house_number">Номер будинку:</label>
+    <input
+      type="text"
+      id="house_number"
+      name="house_number"
+      value="{{ apartment.location.house_number if apartment and apartment.location else '' }}"
       required
     />
 
@@ -52,4 +80,44 @@
     </button>
   </form>
 </div>
+
+<script>
+  const form = document.getElementById('apartment-form');
+
+  form.onsubmit = async (event) => {
+    event.preventDefault();  
+  
+    const formData = new FormData(form);
+    const data = {};
+    formData.forEach((value, key) => { data[key] = value; });
+  
+    const method = data.apartment_id ? 'PUT' : 'POST';
+    const url = data.apartment_id
+      ? `/apartments/${data.apartment_id}/edit/`
+      : '/apartments/';
+  
+    const response = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: data.title,
+        description: data.description,
+        price: parseFloat(data.price),
+        location: {
+          city: data.city,
+          street: data.street,
+          house_number: data.house_number
+        }
+      })
+    });
+  
+    if (response.ok) {
+      const responseData = await response.json();
+      window.location.href = responseData.redirect_url;
+    } else {
+      console.error("Помилка:", await response.text());
+    }
+  };
+</script>
+
 {% endblock %}
