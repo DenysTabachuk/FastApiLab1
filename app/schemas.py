@@ -1,4 +1,6 @@
 from pydantic import BaseModel, Field, validator
+from datetime import datetime
+from typing import Optional
 
 class UserCreate(BaseModel):
     email: str = Field(..., example="user@example.com")
@@ -46,3 +48,43 @@ class Location(BaseModel):
     city: str = Field(..., min_length=3, example="Kyiv")
     street: str = Field(..., min_length=3, example="Khreshchatyk")
     house_number: str = Field(..., min_length=1, example="10")
+
+class UserAdmin(BaseModel):
+    id: int
+    email: str
+    first_name: str
+    last_name: str
+    phone: str
+    is_admin: bool
+    is_active: bool
+    created_at: datetime
+    last_login: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class ApartmentAdmin(BaseModel):
+    id: int
+    title: str
+    description: str
+    price: int
+    status: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    owner: User
+    moderated_by: Optional[int] = None
+    moderated_at: Optional[datetime] = None
+
+class ApartmentModeration(BaseModel):
+    status: str = Field(..., example="approved")
+    moderated_by: int
+
+class SystemStats(BaseModel):
+    total_users: int
+    active_users: int
+    total_apartments: int
+    pending_apartments: int
+    approved_apartments: int
+    rejected_apartments: int
+    average_price: float
+    total_owners: int
