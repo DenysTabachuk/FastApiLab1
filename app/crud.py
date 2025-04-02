@@ -148,9 +148,13 @@ def update_user_last_login(db: Session, user_id: int):
 def get_apartments(db: Session, skip: int = 0, limit: int = 100, current_user: models.User = None):
     query = db.query(models.Apartment)
     
-    # If user is not admin, show only approved apartments
     if not current_user or not current_user.is_admin:
+        # If user is not admin, show only approved apartments
         query = query.filter(models.Apartment.status == 'approved')
+        
+        # If not admin, exclude apartments of blocked users
+        query = query.join(models.User, models.User.id == models.Apartment.owner_id).filter(models.User.is_active == True)
     
     return query.offset(skip).limit(limit).all()
+
 

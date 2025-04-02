@@ -7,6 +7,8 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+print("Database engine created")
+Base.metadata.create_all(bind=engine)
 
 def get_db():
     db = SessionLocal()
@@ -17,10 +19,6 @@ def get_db():
 
 # Функція для оновлення структури бази даних
 def update_database():
-    from .models import User, Apartment, Location
-    
-    # Створюємо всі таблиці
-    Base.metadata.create_all(bind=engine)
     
     # Оновлюємо таблицю users
     with engine.connect() as connection:

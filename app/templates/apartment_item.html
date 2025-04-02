@@ -9,6 +9,12 @@
     <strong>Локація:</strong> {{ apartment.location.city }}, {{
     apartment.location.street }}, буд. {{ apartment.location.house_number }}
   </p>
+
+  <!-- Перевірка статусу -->
+  {% if apartment.status == 'pending' %}
+  <p class="error-message">Очікує на підтвердження</p>
+  {% endif %}
+
   <div>
     <a href="/apartments/{{ apartment.id }}">
       <button>Переглянути</button>

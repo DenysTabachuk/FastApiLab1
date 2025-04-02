@@ -269,9 +269,9 @@ async def admin_panel(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    check_admin_access(current_user)  # Перевірка, чи є користувач адміністратором
+    check_admin_access(current_user)  
 
-    # Отримуємо статистику
+    # оце може краще в crud винести
     stats = {
         "total_users": db.query(models.User).count(),
         "active_users": db.query(models.User).filter(models.User.is_active == True).count(),
@@ -283,7 +283,6 @@ async def admin_panel(
         "total_owners": db.query(models.User).filter(models.User.owned_apartments.any()).count()
     }
 
-    # Отримуємо всіх користувачів
     users = db.query(models.User).all()
 
     # Отримуємо квартири, що очікують модерації
@@ -294,7 +293,7 @@ async def admin_panel(
         "users": users,
         "pending_apartments": pending_apartments,
         "stats": stats,
-        "current_user": current_user  # Додаємо current_user в контекст
+        "current_user": current_user  
     })
 
 @app.post("/admin/users/{user_id}/toggle-status")
@@ -308,6 +307,12 @@ def toggle_user_status(
     user = crud.get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot block or unblock your own account"
+        )
     
     crud.update_user_status(db, user_id, not user.is_active)
     return RedirectResponse(url="/admin/", status_code=302)
@@ -328,23 +333,39 @@ def moderate_apartment(
     return RedirectResponse(url="/admin/", status_code=302)
 
 @app.exception_handler(HTTPException)
-async def custom_http_exception_handler(request: Request, exc: HTTPException):
+async def custom_http_exception_handler(request: Request, exc: HTTPException, current_user: models.User = Depends(auth.get_current_user_from_cookie)):
+    # Якщо помилка 401 (не авторизований), перенаправити на сторінку логіну
     if exc.status_code == 401:
-        return RedirectResponse(url="/login")  
+        return RedirectResponse(url="/login")
+    
+    # Якщо помилка 403 (доступ заборонено), показати сторінку помилки з відповідним повідомленням
     elif exc.status_code == 403:
-        return templates.TemplateResponse("error.html", {"request": request, "title" : "Доступ заборонено", "message": "У вас немає прав доступу до цієї сторінки"})
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "title": "Доступ заборонено", 
+            "message": "У вас немає прав доступу до цієї сторінки",
+            "current_user": current_user 
+        })
+    
+    # Якщо помилка 404 (не знайдено), показати сторінку помилки з повідомленням
     elif exc.status_code == 404:
-        return templates.TemplateResponse("error.html", {"request": request, "title": "Сторінку не знайдено", "message": "Сторінку не знайдено"})
-
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "title": "Сторінку не знайдено", 
+            "message": "Сторінку не знайдено",
+            "current_user": current_user  
+        })
+    
+    # Якщо інша помилка, просто відобразити її в JSON відповіді
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
-
 @app.exception_handler(ValidationError)
-async def validation_exception_handler(request: Request, exc: ValidationError):
+async def validation_exception_handler(request: Request, exc: ValidationError, current_user: models.User = Depends(auth.get_current_user_from_cookie)):
     errors = exc.errors()
-
     error_messages = [{"field": e['loc'][-1], "message": e['msg']} for e in errors]
+
+    # Повертаємо шаблон з помилками та поточним користувачем
     return JSONResponse(
         status_code=400,
-        content={"detail": error_messages}
+        content={"detail": error_messages, "current_user": current_user}  
     )
