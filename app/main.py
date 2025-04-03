@@ -19,7 +19,17 @@ from sqlalchemy.sql import func
 logging.basicConfig(level=logging.INFO)  # Налаштовуємо базову конфігурацію
 logger = logging.getLogger(__name__)  # Створюємо логер для цього модуля
 
-app = FastAPI()
+from fastapi import FastAPI
+
+app = FastAPI(
+    title="Apartment Rental API",
+    description="API for managing apartment rentals, including user registration, authentication, apartment management, and administration.",
+    version="1.0.0",
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    }
+)
 
 # Додаємо middleware
 app.add_middleware(CurrentUserMiddleware)
