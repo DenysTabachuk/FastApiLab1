@@ -12,13 +12,28 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     networks:
-      - mysql_network
+      - app_network
     restart: always
+  
+  mongodb:
+    image: mongo:6.0
+    container_name: fastApi-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - app_network
+    restart: always
+    environment:
+      - MONGO_INITDB_DATABASE=fastApiMongoDB
 
 volumes:
   mysql-data:
     driver: local
+  mongodb-data:
+    driver: local
 
 networks:
-  mysql_network:
+  app_network:
     driver: bridge
