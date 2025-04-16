@@ -3,8 +3,64 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RentalUA</title>
-    <link rel="stylesheet" href="/static/style.css?ver=1.5" />
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css?ver=1.8" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f5f5f5;
+      }
+      .nav {
+        background-color: #333;
+        padding: 15px;
+        color: white;
+      }
+      .nav a {
+        color: white;
+        text-decoration: none;
+        margin-right: 15px;
+      }
+      .nav a:hover {
+        color: #ddd;
+      }
+      .content {
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .form-container {
+        max-width: 500px;
+        margin: 0 auto;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .form-container input {
+        width: 100%;
+        padding: 8px;
+        margin: 8px 0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .form-container button {
+        background: #333;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .form-container button:hover {
+        background: #444;
+      }
+      .error-message {
+        color: red;
+        margin: 10px 0;
+      }
+    </style>
   </head>
   <body>
     <header>
@@ -36,6 +92,9 @@
           navLinks.innerHTML = `
             <li><a href="/">Home</a></li>
             <li><a href="/profile">Profile</a></li>
+            {% if current_user.is_admin %}
+              <li><a href="/admin/">Адмін панель</a></li>
+            {% endif %}
           `;
         } else {
           navLinks.innerHTML = `

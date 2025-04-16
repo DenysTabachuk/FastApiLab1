@@ -73,9 +73,17 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
   padding: 8px;
   margin-top: 5px;
+  border: 1px solid black !important;
+  width: 95% !important;
+  border-radius: 5px;
+}
+
+select {
+  width: 98% !important;
 }
 
 button {
@@ -92,6 +100,7 @@ button {
   border: 1px solid black;
   border-radius: 15px;
   padding: 20px;
+  margin: 20px 5px 5px 5px;
   /* width: 25%; */
 }
 
