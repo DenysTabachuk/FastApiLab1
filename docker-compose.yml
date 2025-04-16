@@ -1,24 +1,40 @@
-version: "3.8"
+version: '3.8'
 
 services:
   mysql:
     image: mysql:8.0
-    container_name: fastApi-mysql
+    container_name: fastapi_mysql
     environment:
       MYSQL_ROOT_PASSWORD: 1234
       MYSQL_DATABASE: fastApiDatabase
     ports:
       - "3306:3306"
     volumes:
-      - mysql-data:/var/lib/mysql
-    networks:
-      - mysql_network
-    restart: always
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:14
+    container_name: fastapi_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: fastapi_apartments
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init_postgres.sql:/docker-entrypoint-initdb.d/init_postgres.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  mysql-data:
-    driver: local
-
-networks:
-  mysql_network:
-    driver: bridge
+  mysql_data:
+  postgres_data:

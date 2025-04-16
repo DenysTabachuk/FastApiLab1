@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, Request, HTTPException, Form, status
+from fastapi import FastAPI, Depends, Request, HTTPException, Form, status, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 import logging
 from .middleware import CurrentUserMiddleware
 from sqlalchemy.sql import func
+from typing import Optional, List, Dict, Any
+from .pg_repo import PgRepository
 
 
 # Налаштування логування
@@ -379,3 +381,151 @@ async def validation_exception_handler(request: Request, exc: ValidationError, c
         status_code=400,
         content={"detail": error_messages, "current_user": current_user}  
     )
+
+# New PostgreSQL-specific endpoints
+
+@app.get("/api/apartments/search")
+async def search_apartments(
+    query: str = "",
+    min_price: Optional[int] = None,
+    max_price: Optional[int] = None,
+    city: Optional[str] = None,
+    limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    current_user: models.User = Depends(auth.get_current_user_from_cookie)
+):
+    """
+    Search apartments using PostgreSQL full-text search capabilities.
+    """
+    results = PgRepository.search_apartments(
+        query=query,
+        min_price=min_price,
+        max_price=max_price,
+        city=city,
+        limit=limit,
+        offset=offset
+    )
+    
+    return {"results": results, "count": len(results)}
+
+@app.get("/api/apartments/nearby")
+async def find_nearby_apartments(
+    lat: float,
+    lon: float,
+    radius_km: float = Query(5, ge=0.1, le=50),
+    current_user: models.User = Depends(auth.get_current_user_from_cookie)
+):
+    """
+    Find apartments near a specific location using PostgreSQL geospatial capabilities.
+    """
+    results = PgRepository.get_nearby_apartments(lat, lon, radius_km)
+    return {"results": results, "count": len(results)}
+
+@app.post("/api/apartments/{apartment_id}/features")
+async def update_apartment_features(
+    apartment_id: int,
+    features: Dict[str, Any],
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update apartment features using PostgreSQL JSONB operations.
+    """
+    # Check if user owns the apartment
+    apartment = crud.get_apartment(db, apartment_id)
+    if not apartment:
+        raise HTTPException(status_code=404, detail="Apartment not found")
+    
+    if apartment.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to update this apartment")
+    
+    success = PgRepository.update_apartment_features(apartment_id, features)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update apartment features")
+    
+    return {"message": "Features updated successfully"}
+
+@app.get("/api/apartments/filter-by-features")
+async def filter_apartments_by_features(
+    features: Dict[str, Any],
+    current_user: models.User = Depends(auth.get_current_user_from_cookie)
+):
+    """
+    Find apartments with specific features using PostgreSQL JSONB querying.
+    """
+    results = PgRepository.get_apartments_with_jsonb_features(features)
+    return {"results": results, "count": len(results)}
+
+@app.post("/api/locations/{location_id}/coordinates")
+async def set_location_coordinates(
+    location_id: int,
+    lat: float,
+    lon: float,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update location coordinates using PostgreSQL JSONB.
+    """
+    # Check if user is admin or owns apartments at this location
+    if not current_user.is_admin:
+        # Check if user has apartments at this location
+        user_has_apartment = db.query(models.Apartment).filter(
+            models.Apartment.owner_id == current_user.id,
+            models.Apartment.location_id == location_id
+        ).first()
+        
+        if not user_has_apartment:
+            raise HTTPException(status_code=403, detail="Not authorized to update this location")
+    
+    success = PgRepository.set_location_coordinates(location_id, lat, lon)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update location coordinates")
+    
+    return {"message": "Coordinates updated successfully"}
+
+@app.get("/api/stats/apartments")
+async def get_apartment_statistics(
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """
+    Get advanced statistics about apartments using PostgreSQL aggregations.
+    Admin access required.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    stats = PgRepository.get_apartment_statistics()
+    return stats
+
+@app.get("/api/stats/user-activity")
+async def get_user_activity_statistics(
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """
+    Get statistics about user activity using PostgreSQL window functions.
+    Admin access required.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    stats = PgRepository.get_user_activity_statistics()
+    return stats
+
+# Add a new admin page to show advanced statistics
+@app.get("/admin/statistics/")
+async def admin_statistics_page(
+    request: Request,
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    check_admin_access(current_user)  
+    
+    apartment_stats = PgRepository.get_apartment_statistics()
+    user_stats = PgRepository.get_user_activity_statistics()
+    
+    return templates.TemplateResponse("admin_statistics.html", {
+        "request": request,
+        "apartment_stats": apartment_stats,
+        "user_stats": user_stats,
+        "current_user": current_user  
+    })

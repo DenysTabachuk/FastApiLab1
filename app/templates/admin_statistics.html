@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Розширена статистика{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Розширена PostgreSQL статистика</h1>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Статистика квартир</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <tbody>
+                                <tr>
+                                    <th>Загальна кількість</th>
+                                    <td>{{ apartment_stats.total_count }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Середня ціна</th>
+                                    <td>{{ apartment_stats.avg_price }} грн</td>
+                                </tr>
+                                <tr>
+                                    <th>Медіанна ціна</th>
+                                    <td>{{ apartment_stats.median_price }} грн</td>
+                                </tr>
+                                <tr>
+                                    <th>Мінімальна ціна</th>
+                                    <td>{{ apartment_stats.min_price }} грн</td>
+                                </tr>
+                                <tr>
+                                    <th>Максимальна ціна</th>
+                                    <td>{{ apartment_stats.max_price }} грн</td>
+                                </tr>
+                                <tr>
+                                    <th>Унікальних власників</th>
+                                    <td>{{ apartment_stats.unique_owners }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Унікальних локацій</th>
+                                    <td>{{ apartment_stats.unique_locations }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Затверджених оголошень</th>
+                                    <td>{{ apartment_stats.approved_count }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Очікують схвалення</th>
+                                    <td>{{ apartment_stats.pending_count }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Відхилених оголошень</th>
+                                    <td>{{ apartment_stats.rejected_count }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Найпопулярніше місто</th>
+                                    <td>{{ apartment_stats.most_common_city }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">Статистика по містах</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="citiesChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="card-title mb-0">Активність користувачів</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Ранг</th>
+                            <th>Користувач</th>
+                            <th>Email</th>
+                            <th>Кількість квартир</th>
+                            <th>Середня ціна</th>
+                            <th>Затверджено</th>
+                            <th>Відхилено</th>
+                            <th>Перше оголошення</th>
+                            <th>Останнє оголошення</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in user_stats %}
+                        <tr>
+                            <td>{{ user.rank_by_count }}</td>
+                            <td>{{ user.first_name }} {{ user.last_name }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>{{ user.apartment_count }}</td>
+                            <td>{{ user.avg_price }} грн</td>
+                            <td>{{ user.approved_count }}</td>
+                            <td>{{ user.rejected_count }}</td>
+                            <td>{{ user.first_apartment_created }}</td>
+                            <td>{{ user.last_apartment_created }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Ця функція викликатиме API для отримання даних для графіка по містах
+        fetch('/api/stats/apartments')
+            .then(response => response.json())
+            .then(data => {
+                // Дані можна використати для графіка (в реальному випадку треба інший API endpoint для даних по містах)
+                const ctx = document.getElementById('citiesChart').getContext('2d');
+                const myChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Київ', 'Львів', 'Одеса', 'Харків', 'Дніпро'],
+                        datasets: [{
+                            label: 'Кількість квартир',
+                            data: [12, 19, 3, 5, 2],
+                            backgroundColor: [
+                                'rgba(75, 192, 192, 0.5)',
+                                'rgba(54, 162, 235, 0.5)',
+                                'rgba(153, 102, 255, 0.5)',
+                                'rgba(255, 159, 64, 0.5)',
+                                'rgba(255, 99, 132, 0.5)'
+                            ],
+                            borderColor: [
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(54, 162, 235, 1)',
+                                'rgba(153, 102, 255, 1)',
+                                'rgba(255, 159, 64, 1)',
+                                'rgba(255, 99, 132, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    });
+</script>
+{% endblock %} 
