@@ -35,7 +35,7 @@ class PgRepository:
             
             # Add full-text search condition if query is provided
             if query and query.strip():
-                where_clauses.append("search_vector @@ plainto_tsquery('english', %s)")
+                where_clauses.append("search_vector @@ plainto_tsquery('russian', %s)")
                 params.append(query)
             
             # Add price range conditions
@@ -60,7 +60,7 @@ class PgRepository:
             SELECT a.*, 
                    l.city, l.street, l.house_number,
                    u.first_name, u.last_name, u.email,
-                   CASE WHEN %s <> '' THEN ts_rank_cd(a.search_vector, plainto_tsquery('english', %s)) ELSE 0 END AS rank
+                   CASE WHEN %s <> '' THEN ts_rank_cd(a.search_vector, plainto_tsquery('russian', %s)) ELSE 0 END AS rank
             FROM apartments a
             JOIN locations l ON a.location_id = l.id
             JOIN users u ON a.owner_id = u.id
@@ -196,45 +196,75 @@ class PgRepository:
                 conn.close()
     
     @staticmethod
-    def get_user_activity_statistics() -> List[Dict[str, Any]]:
+    def get_user_activity_statistics() -> Dict[str, Any]:
         """
-        Get statistics about user activity using PostgreSQL window functions
+        Get comprehensive user activity statistics using PostgreSQL aggregations.
+        Returns:
+            Dictionary containing various user activity metrics
         """
         try:
             conn = get_psycopg_conn()
             cur = conn.cursor()
             
+            # Get basic user statistics
             sql = """
+            WITH user_stats AS (
+                SELECT 
+                    COUNT(*) as total_users,
+                    COUNT(CASE WHEN is_active THEN 1 END) as active_users,
+                    COUNT(DISTINCT a.owner_id) as users_with_apartments,
+                    COUNT(a.id) as total_apartments,
+                    AVG(CASE WHEN a.id IS NOT NULL THEN 1 ELSE 0 END) as avg_apartments_per_user
+                FROM users u
+                LEFT JOIN apartments a ON u.id = a.owner_id
+            ),
+            activity_by_date AS (
+                SELECT 
+                    DATE_TRUNC('day', created_at) as activity_date,
+                    COUNT(*) as new_users,
+                    COUNT(CASE WHEN a.id IS NOT NULL THEN 1 END) as new_apartments
+                FROM users u
+                LEFT JOIN apartments a ON u.id = a.owner_id
+                GROUP BY activity_date
+                ORDER BY activity_date DESC
+                LIMIT 30
+            )
             SELECT 
-                u.id,
-                u.email,
-                u.first_name,
-                u.last_name,
-                COUNT(a.id) as apartment_count,
-                MAX(a.created_at) as last_apartment_created,
-                MIN(a.created_at) as first_apartment_created,
-                ROUND(AVG(a.price), 2) as avg_price,
-                COUNT(a.id) FILTER (WHERE a.status = 'approved') as approved_count,
-                COUNT(a.id) FILTER (WHERE a.status = 'rejected') as rejected_count,
-                RANK() OVER (ORDER BY COUNT(a.id) DESC) as rank_by_count
-            FROM 
-                users u
-            LEFT JOIN 
-                apartments a ON u.id = a.owner_id
+                us.*,
+                json_agg(
+                    json_build_object(
+                        'date', abd.activity_date,
+                        'new_users', abd.new_users,
+                        'new_apartments', abd.new_apartments
+                    )
+                ) as recent_activity
+            FROM user_stats us
+            CROSS JOIN activity_by_date abd
             GROUP BY 
-                u.id, u.email, u.first_name, u.last_name
-            ORDER BY 
-                apartment_count DESC
-            LIMIT 20
+                us.total_users,
+                us.active_users,
+                us.users_with_apartments,
+                us.total_apartments,
+                us.avg_apartments_per_user
             """
             
             cur.execute(sql)
-            results = cur.fetchall()
+            result = cur.fetchone()
             
-            return results
+            if result:
+                return {
+                    "total_users": result[0],
+                    "active_users": result[1],
+                    "users_with_apartments": result[2],
+                    "total_apartments": result[3],
+                    "avg_apartments_per_user": float(result[4]),
+                    "recent_activity": result[5]
+                }
+            return {}
+            
         except Exception as e:
             logger.error(f"Error in get_user_activity_statistics: {e}")
-            return []
+            return {}
         finally:
             if conn:
                 conn.close()
@@ -251,23 +281,26 @@ class PgRepository:
             
             # Note: This assumes the coordinates JSONB field has lat and lon keys
             sql = """
-            SELECT 
-                a.*,
-                l.city, l.street, l.house_number,
-                (l.coordinates->>'lat')::float as lat,
-                (l.coordinates->>'lon')::float as lon,
-                (6371 * acos(
-                    cos(radians(%s)) * 
-                    cos(radians((l.coordinates->>'lat')::float)) * 
-                    cos(radians((l.coordinates->>'lon')::float) - radians(%s)) + 
-                    sin(radians(%s)) * 
-                    sin(radians((l.coordinates->>'lat')::float))
-                )) as distance
-            FROM apartments a
-            JOIN locations l ON a.location_id = l.id
-            WHERE l.coordinates IS NOT NULL
-            AND a.status = 'approved'
-            HAVING distance <= %s
+            WITH apartment_distances AS (
+                SELECT 
+                    a.*,
+                    l.city, l.street, l.house_number,
+                    (l.coordinates->>'lat')::float as lat,
+                    (l.coordinates->>'lon')::float as lon,
+                    (6371 * acos(
+                        cos(radians(%s)) * 
+                        cos(radians((l.coordinates->>'lat')::float)) * 
+                        cos(radians((l.coordinates->>'lon')::float) - radians(%s)) + 
+                        sin(radians(%s)) * 
+                        sin(radians((l.coordinates->>'lat')::float))
+                    )) as distance
+                FROM apartments a
+                JOIN locations l ON a.location_id = l.id
+                WHERE l.coordinates IS NOT NULL
+                AND a.status = 'approved'
+            )
+            SELECT * FROM apartment_distances
+            WHERE distance <= %s
             ORDER BY distance
             """
             

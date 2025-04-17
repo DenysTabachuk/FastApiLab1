@@ -386,40 +386,62 @@ async def validation_exception_handler(request: Request, exc: ValidationError, c
 
 @app.get("/api/apartments/search")
 async def search_apartments(
-    query: str = "",
-    min_price: Optional[int] = None,
-    max_price: Optional[int] = None,
-    city: Optional[str] = None,
+    query: str = Query("", description="Search text for title and description"),
+    min_price: Optional[int] = Query(None, description="Minimum price filter"),
+    max_price: Optional[int] = Query(None, description="Maximum price filter"),
+    city: Optional[str] = Query(None, description="City filter"),
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
     current_user: models.User = Depends(auth.get_current_user_from_cookie)
 ):
     """
     Search apartments using PostgreSQL full-text search capabilities.
+    Parameters:
+        - query: Search text for title and description
+        - min_price: Minimum price filter
+        - max_price: Maximum price filter
+        - city: City filter
+        - limit: Number of results per page (1-100)
+        - offset: Pagination offset
+    Returns:
+        - results: List of matching apartments
+        - count: Total number of results
     """
-    results = PgRepository.search_apartments(
-        query=query,
-        min_price=min_price,
-        max_price=max_price,
-        city=city,
-        limit=limit,
-        offset=offset
-    )
-    
-    return {"results": results, "count": len(results)}
+    try:
+        results = PgRepository.search_apartments(
+            query=query,
+            min_price=min_price,
+            max_price=max_price,
+            city=city,
+            limit=limit,
+            offset=offset
+        )
+        return {"results": results, "count": len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 @app.get("/api/apartments/nearby")
 async def find_nearby_apartments(
-    lat: float,
-    lon: float,
-    radius_km: float = Query(5, ge=0.1, le=50),
+    lat: float = Query(..., description="Latitude of the center point"),
+    lon: float = Query(..., description="Longitude of the center point"),
+    radius_km: float = Query(5, ge=0.1, le=50, description="Search radius in kilometers"),
     current_user: models.User = Depends(auth.get_current_user_from_cookie)
 ):
     """
     Find apartments near a specific location using PostgreSQL geospatial capabilities.
+    Parameters:
+        - lat: Latitude of the center point
+        - lon: Longitude of the center point
+        - radius_km: Search radius in kilometers (0.1-50)
+    Returns:
+        - results: List of nearby apartments with distance
+        - count: Total number of results
     """
-    results = PgRepository.get_nearby_apartments(lat, lon, radius_km)
-    return {"results": results, "count": len(results)}
+    try:
+        results = PgRepository.get_nearby_apartments(lat, lon, radius_km)
+        return {"results": results, "count": len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to find nearby apartments: {str(e)}")
 
 @app.post("/api/apartments/{apartment_id}/features")
 async def update_apartment_features(
@@ -430,59 +452,84 @@ async def update_apartment_features(
 ):
     """
     Update apartment features using PostgreSQL JSONB operations.
+    Parameters:
+        - apartment_id: ID of the apartment to update
+        - features: Dictionary of features to update
+    Returns:
+        - message: Success message
     """
-    # Check if user owns the apartment
-    apartment = crud.get_apartment(db, apartment_id)
-    if not apartment:
-        raise HTTPException(status_code=404, detail="Apartment not found")
-    
-    if apartment.owner_id != current_user.id and not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Not authorized to update this apartment")
-    
-    success = PgRepository.update_apartment_features(apartment_id, features)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to update apartment features")
-    
-    return {"message": "Features updated successfully"}
+    try:
+        # Check if user owns the apartment
+        apartment = crud.get_apartment(db, apartment_id)
+        if not apartment:
+            raise HTTPException(status_code=404, detail="Apartment not found")
+        
+        if apartment.owner_id != current_user.id and not current_user.is_admin:
+            raise HTTPException(status_code=403, detail="Not authorized to update this apartment")
+        
+        success = PgRepository.update_apartment_features(apartment_id, features)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update apartment features")
+        
+        return {"message": "Features updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update features: {str(e)}")
 
-@app.get("/api/apartments/filter-by-features")
+@app.post("/api/apartments/filter-by-features")
 async def filter_apartments_by_features(
     features: Dict[str, Any],
     current_user: models.User = Depends(auth.get_current_user_from_cookie)
 ):
     """
     Find apartments with specific features using PostgreSQL JSONB querying.
+    Parameters:
+        - features: Dictionary of features to filter by
+    Returns:
+        - results: List of matching apartments
+        - count: Total number of results
     """
-    results = PgRepository.get_apartments_with_jsonb_features(features)
-    return {"results": results, "count": len(results)}
+    try:
+        results = PgRepository.get_apartments_with_jsonb_features(features)
+        return {"results": results, "count": len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to filter apartments: {str(e)}")
 
 @app.post("/api/locations/{location_id}/coordinates")
 async def set_location_coordinates(
     location_id: int,
-    lat: float,
-    lon: float,
+    lat: float = Query(..., description="Latitude"),
+    lon: float = Query(..., description="Longitude"),
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Update location coordinates using PostgreSQL JSONB.
+    Parameters:
+        - location_id: ID of the location to update
+        - lat: Latitude
+        - lon: Longitude
+    Returns:
+        - message: Success message
     """
-    # Check if user is admin or owns apartments at this location
-    if not current_user.is_admin:
-        # Check if user has apartments at this location
-        user_has_apartment = db.query(models.Apartment).filter(
-            models.Apartment.owner_id == current_user.id,
-            models.Apartment.location_id == location_id
-        ).first()
+    try:
+        # Check if user is admin or owns apartments at this location
+        if not current_user.is_admin:
+            # Check if user has apartments at this location
+            user_has_apartment = db.query(models.Apartment).filter(
+                models.Apartment.owner_id == current_user.id,
+                models.Apartment.location_id == location_id
+            ).first()
+            
+            if not user_has_apartment:
+                raise HTTPException(status_code=403, detail="Not authorized to update this location")
         
-        if not user_has_apartment:
-            raise HTTPException(status_code=403, detail="Not authorized to update this location")
-    
-    success = PgRepository.set_location_coordinates(location_id, lat, lon)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to update location coordinates")
-    
-    return {"message": "Coordinates updated successfully"}
+        success = PgRepository.set_location_coordinates(location_id, lat, lon)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update location coordinates")
+        
+        return {"message": "Coordinates updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update coordinates: {str(e)}")
 
 @app.get("/api/stats/apartments")
 async def get_apartment_statistics(
@@ -491,20 +538,36 @@ async def get_apartment_statistics(
     """
     Get advanced statistics about apartments using PostgreSQL aggregations.
     Admin access required.
+    Returns:
+        - Total number of apartments
+        - Number of apartments by status
+        - Average price
+        - Price distribution
+        - Apartments by city
+        - Recent activity
     """
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    stats = PgRepository.get_apartment_statistics()
-    return stats
+    try:
+        stats = PgRepository.get_apartment_statistics()
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get statistics: {str(e)}")
 
 @app.get("/api/stats/user-activity")
 async def get_user_activity_statistics(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     """
-    Get statistics about user activity using PostgreSQL window functions.
+    Get user activity statistics using PostgreSQL aggregations.
     Admin access required.
+    Returns:
+        - Total number of users
+        - Number of active users
+        - Number of users who posted apartments
+        - Average apartments per user
+        - User activity by date
     """
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
@@ -528,4 +591,17 @@ async def admin_statistics_page(
         "apartment_stats": apartment_stats,
         "user_stats": user_stats,
         "current_user": current_user  
+    })
+
+@app.get("/advanced-search/")
+async def advanced_search_page(
+    request: Request,
+    current_user: models.User = Depends(auth.get_current_user_from_cookie)
+):
+    """
+    Show the advanced search page with full-text search, nearby search, and feature filtering capabilities.
+    """
+    return templates.TemplateResponse("advanced_search.html", {
+        "request": request,
+        "current_user": current_user
     })

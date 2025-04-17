@@ -212,8 +212,8 @@ def create_postgres_triggers(pg_conn):
         CREATE OR REPLACE FUNCTION apartments_search_vector_update() RETURNS TRIGGER AS $$
         BEGIN
             NEW.search_vector = 
-                setweight(to_tsvector('english', COALESCE(NEW.title, '')), 'A') ||
-                setweight(to_tsvector('english', COALESCE(NEW.description, '')), 'B');
+                setweight(to_tsvector('russian', COALESCE(NEW.title, '')), 'A') ||
+                setweight(to_tsvector('russian', COALESCE(NEW.description, '')), 'B');
             RETURN NEW;
         END;
         $$ LANGUAGE plpgsql;
@@ -229,8 +229,8 @@ def create_postgres_triggers(pg_conn):
         # Update existing records to populate search vector
         cursor.execute("""
         UPDATE apartments SET 
-        search_vector = setweight(to_tsvector('english', COALESCE(title, '')), 'A') ||
-                        setweight(to_tsvector('english', COALESCE(description, '')), 'B');
+        search_vector = setweight(to_tsvector('russian', COALESCE(title, '')), 'A') ||
+                        setweight(to_tsvector('russian', COALESCE(description, '')), 'B');
         """)
         
         pg_conn.commit()

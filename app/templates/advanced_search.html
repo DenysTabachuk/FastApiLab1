@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}Розширений пошук{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Розширений пошук</h1>
+
+    <div class="row">
+        <!-- Full-text Search Section -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Повнотекстовий пошук</h5>
+                </div>
+                <div class="card-body">
+                    <form id="searchForm" class="mb-3">
+                        <div class="mb-3">
+                            <label for="searchQuery" class="form-label">Пошуковий запит</label>
+                            <input type="text" class="form-control" id="searchQuery" placeholder="Введіть ключові слова...">
+                        </div>
+                        <div class="mb-3">
+                            <label for="minPrice" class="form-label">Мінімальна ціна</label>
+                            <input type="number" class="form-control" id="minPrice" min="0">
+                        </div>
+                        <div class="mb-3">
+                            <label for="maxPrice" class="form-label">Максимальна ціна</label>
+                            <input type="number" class="form-control" id="maxPrice" min="0">
+                        </div>
+                        <div class="mb-3">
+                            <label for="city" class="form-label">Місто</label>
+                            <input type="text" class="form-control" id="city" placeholder="Введіть місто...">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Пошук</button>
+                    </form>
+                    <div id="searchResults" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nearby Search Section -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Пошук квартир поблизу</h5>
+                </div>
+                <div class="card-body">
+                    <form id="nearbyForm" class="mb-3">
+                        <div class="mb-3">
+                            <label for="latitude" class="form-label">Широта</label>
+                            <input type="number" step="any" class="form-control" id="latitude" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="longitude" class="form-label">Довгота</label>
+                            <input type="number" step="any" class="form-control" id="longitude" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="radius" class="form-label">Радіус (км)</label>
+                            <input type="number" class="form-control" id="radius" value="5" min="0.1" max="50" step="0.1">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Знайти поблизу</button>
+                    </form>
+                    <div id="nearbyResults" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature Filter Section -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Фільтр за характеристиками</h5>
+                </div>
+                <div class="card-body">
+                    <form id="featuresForm" class="mb-3">
+                        <div class="mb-3">
+                            <label for="bedrooms" class="form-label">Кількість спалень</label>
+                            <input type="number" class="form-control" id="bedrooms" min="0">
+                        </div>
+                        <div class="mb-3">
+                            <label for="bathrooms" class="form-label">Кількість ванних кімнат</label>
+                            <input type="number" class="form-control" id="bathrooms" min="0">
+                        </div>
+                        <div class="mb-3">
+                            <label for="area" class="form-label">Площа (м²)</label>
+                            <input type="number" class="form-control" id="area" min="0">
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="hasParking">
+                                <label class="form-check-label" for="hasParking">Є паркування</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="hasBalcony">
+                                <label class="form-check-label" for="hasBalcony">Є балкон</label>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Фільтрувати</button>
+                    </form>
+                    <div id="featuresResults" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Full-text Search
+    document.getElementById('searchForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const query = document.getElementById('searchQuery').value || '';
+        const minPrice = document.getElementById('minPrice').value;
+        const maxPrice = document.getElementById('maxPrice').value;
+        const city = document.getElementById('city').value || '';
+
+        const searchResults = document.getElementById('searchResults');
+        searchResults.innerHTML = '<div class="alert alert-info">Шукаємо...</div>';
+
+        // Construct URL with only non-empty parameters
+        let searchUrl = `/api/apartments/search?query=${encodeURIComponent(query)}`;
+        if (minPrice) searchUrl += `&min_price=${minPrice}`;
+        if (maxPrice) searchUrl += `&max_price=${maxPrice}`;
+        if (city) searchUrl += `&city=${encodeURIComponent(city)}`;
+
+        try {
+            const response = await fetch(searchUrl);
+            
+            if (!response.ok) {
+                throw new Error(`Помилка ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            displayResults(data.results, 'searchResults');
+        } catch (error) {
+            console.error('Помилка пошуку:', error);
+            searchResults.innerHTML = `<div class="alert alert-danger">Помилка: ${error.message}</div>`;
+        }
+    });
+
+    // Nearby Search
+    document.getElementById('nearbyForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const lat = document.getElementById('latitude').value;
+        const lon = document.getElementById('longitude').value;
+        const radius = document.getElementById('radius').value || '5';
+
+        if (!lat || !lon) {
+            document.getElementById('nearbyResults').innerHTML = 
+                '<div class="alert alert-danger">Будь ласка, введіть координати (широту і довготу)</div>';
+            return;
+        }
+
+        const nearbyResults = document.getElementById('nearbyResults');
+        nearbyResults.innerHTML = '<div class="alert alert-info">Шукаємо поблизу...</div>';
+
+        try {
+            const response = await fetch(`/api/apartments/nearby?lat=${lat}&lon=${lon}&radius_km=${radius}`);
+            
+            if (!response.ok) {
+                throw new Error(`Помилка ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            displayResults(data.results, 'nearbyResults');
+        } catch (error) {
+            console.error('Помилка пошуку поблизу:', error);
+            nearbyResults.innerHTML = `<div class="alert alert-danger">Помилка: ${error.message}</div>`;
+        }
+    });
+
+    // Feature Filter
+    document.getElementById('featuresForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const features = {};
+        
+        const bedrooms = document.getElementById('bedrooms').value;
+        const bathrooms = document.getElementById('bathrooms').value;
+        const area = document.getElementById('area').value;
+        
+        if (bedrooms) features.bedrooms = bedrooms;
+        if (bathrooms) features.bathrooms = bathrooms;
+        if (area) features.area = area;
+        
+        features.has_parking = document.getElementById('hasParking').checked;
+        features.has_balcony = document.getElementById('hasBalcony').checked;
+
+        const featuresResults = document.getElementById('featuresResults');
+        featuresResults.innerHTML = '<div class="alert alert-info">Фільтруємо квартири...</div>';
+
+        try {
+            const response = await fetch('/api/apartments/filter-by-features', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(features)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Помилка ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            displayResults(data.results, 'featuresResults');
+        } catch (error) {
+            console.error('Помилка фільтрації:', error);
+            featuresResults.innerHTML = `<div class="alert alert-danger">Помилка: ${error.message}</div>`;
+        }
+    });
+
+    function displayResults(results, containerId) {
+        const container = document.getElementById(containerId);
+        
+        if (!results || results.length === 0) {
+            container.innerHTML = '<div class="alert alert-info">Нічого не знайдено</div>';
+            return;
+        }
+
+        const html = results.map(apartment => {
+            // Перевірка на наявність полів перед використанням
+            const title = apartment.title || 'Без назви';
+            const description = apartment.description || 'Опис відсутній';
+            const price = apartment.price || 0;
+            const city = apartment.city || '';
+            const street = apartment.street || '';
+            const houseNumber = apartment.house_number || '';
+            
+            let location = '';
+            if (city || street || houseNumber) {
+                location = `<p class="card-text"><strong>Розташування:</strong> ${city}${street ? ', ' + street : ''}${houseNumber ? ' ' + houseNumber : ''}</p>`;
+            }
+            
+            let distanceText = '';
+            if (apartment.distance) {
+                distanceText = `<p class="card-text"><strong>Відстань:</strong> ${parseFloat(apartment.distance).toFixed(2)} км</p>`;
+            }
+            
+            return `
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">${title}</h5>
+                        <p class="card-text">${description}</p>
+                        <p class="card-text"><strong>Ціна:</strong> ${price} грн</p>
+                        ${location}
+                        ${distanceText}
+                        <a href="/apartments/${apartment.id}" class="btn btn-primary">Детальніше</a>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = html;
+    }
+});
+</script>
+{% endblock %} 
