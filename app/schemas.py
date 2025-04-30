@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, validator
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 class UserCreate(BaseModel):
     """
@@ -231,3 +231,21 @@ class SystemStats(BaseModel):
     rejected_apartments: int = Field(..., example=5, description="Кількість відхилених квартир")
     average_price: float = Field(..., example=1500.0, description="Середня ціна оренди")
     total_owners: int = Field(..., example=30, description="Кількість власників квартир")
+
+class ApartmentObservation(BaseModel):
+    """
+    Модель для спостереження за квартирами (збереження в закладки).
+    
+    Attributes:
+        id (str): Унікальний ідентифікатор спостереження
+        apartment_id (str): ID квартири
+        user_id (str): ID користувача
+        created_at (datetime): Дата створення спостереження
+    """
+    id: str = Field(..., example="5f7c7b7c7b7c7b7c7b7c7b7c", description="Унікальний ідентифікатор спостереження")
+    apartment_id: str = Field(..., example="5f7c7b7c7b7c7b7c7b7c7b7c", description="ID квартири")
+    user_id: str = Field(..., example="5f7c7b7c7b7c7b7c7b7c7b7c", description="ID користувача")
+    created_at: datetime = Field(..., description="Дата створення спостереження")
+    
+    class Config:
+        from_attributes = True

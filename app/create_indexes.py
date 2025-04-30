@@ -8,58 +8,38 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def create_indexes():
-    """Create indexes for MongoDB collections"""
+    """Create MongoDB indexes for better performance"""
+    logger.info("Creating MongoDB indexes...")
+    
     try:
-        # Get collections
-        users_collection = get_collection("users")
-        apartments_collection = get_collection("apartments")
-        locations_collection = get_collection("locations")
-        
-        logger.info("Creating MongoDB indexes...")
-        
-        # User indexes
+        # Users collection indexes
         logger.info("Creating indexes for users collection...")
+        users_collection = get_collection("users")
         users_collection.create_index("email", unique=True)
-        users_collection.create_index("is_active")
-        users_collection.create_index("is_admin")
         
-        # Apartment indexes
+        # Apartments collection indexes
         logger.info("Creating indexes for apartments collection...")
+        apartments_collection = get_collection("apartments")
         apartments_collection.create_index("owner_id")
         apartments_collection.create_index("status")
-        apartments_collection.create_index("created_at")
-        apartments_collection.create_index("price")
-        apartments_collection.create_index([("price", ASCENDING), ("created_at", DESCENDING)])
+        # Text search index
+        apartments_collection.create_index([("title", "text"), ("description", "text")])
         
-        # Text search index for apartments
-        apartments_collection.create_index([
-            ("title", TEXT), 
-            ("description", TEXT),
-            ("location.city", TEXT),
-            ("location.street", TEXT)
-        ], 
-        name="text_search_index", 
-        default_language="english",
-        weights={
-            "title": 10,
-            "description": 5,
-            "location.city": 3,
-            "location.street": 1
-        })
-        
-        # Location indexes
+        # Locations collection indexes
         logger.info("Creating indexes for locations collection...")
-        locations_collection.create_index([
-            ("city", ASCENDING),
-            ("street", ASCENDING),
-            ("house_number", ASCENDING)
-        ], unique=True)
+        locations_collection = get_collection("locations")
+        locations_collection.create_index([("city", 1), ("street", 1), ("house_number", 1)], unique=True)
+        
+        # Apartment observations collection indexes
+        logger.info("Creating indexes for apartment observations collection...")
+        observations_collection = get_collection("apartment_observations")
+        observations_collection.create_index([("user_id", 1), ("apartment_id", 1)], unique=True)
+        observations_collection.create_index("user_id")
         
         logger.info("MongoDB indexes created successfully")
-        return True
-    except OperationFailure as e:
-        logger.error(f"Failed to create indexes: {e}")
-        return False
+    except Exception as e:
+        logger.error(f"Error creating MongoDB indexes: {e}")
+        raise
 
 if __name__ == "__main__":
     create_indexes() 

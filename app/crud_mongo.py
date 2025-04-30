@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from . import schemas
 from .database_mongo import get_collection
-from .models_mongo import User, Location, Apartment
+from .models_mongo import User, Location, Apartment, convert_object_id, ApartmentObservation
 
 # User Operations
 def create_user(user: schemas.UserCreate) -> Dict[str, Any]:
@@ -275,4 +275,79 @@ def get_system_stats() -> Dict[str, Any]:
         "rejected_apartments": rejected_apartments,
         "average_price": float(average_price),
         "total_owners": total_owners
-    } 
+    }
+
+# Apartment Observation Operations
+def observe_apartment(apartment_id: str, user_id: str) -> Dict[str, Any]:
+    """Add apartment to user's observation list"""
+    observations_collection = get_collection("apartment_observations")
+    
+    # Check if apartment exists
+    apartment = get_apartment(apartment_id)
+    if not apartment:
+        return None
+    
+    # Check if already observed
+    existing = observations_collection.find_one({
+        "apartment_id": apartment_id,
+        "user_id": user_id
+    })
+    
+    if existing:
+        return ApartmentObservation.from_db(existing)
+    
+    # Create observation
+    observation_data = ApartmentObservation.create(
+        apartment_id=apartment_id,
+        user_id=user_id
+    )
+    
+    # Insert into database
+    result = observations_collection.insert_one(observation_data)
+    observation_data["_id"] = result.inserted_id
+    
+    return ApartmentObservation.from_db(observation_data)
+
+def remove_observation(apartment_id: str, user_id: str) -> bool:
+    """Remove apartment from user's observation list"""
+    observations_collection = get_collection("apartment_observations")
+    
+    result = observations_collection.delete_one({
+        "apartment_id": apartment_id,
+        "user_id": user_id
+    })
+    
+    return result.deleted_count > 0
+
+def get_user_observations(user_id: str) -> List[Dict[str, Any]]:
+    """Get all apartments observed by user"""
+    observations_collection = get_collection("apartment_observations")
+    apartments_collection = get_collection("apartments")
+    
+    # Get observation IDs
+    observations = list(observations_collection.find({"user_id": user_id}))
+    apartment_ids = [obs["apartment_id"] for obs in observations]
+    
+    # Get corresponding apartments
+    observed_apartments = []
+    for apt_id in apartment_ids:
+        try:
+            apartment = get_apartment(apt_id)
+            if apartment:
+                observed_apartments.append(apartment)
+        except Exception:
+            # Skip invalid IDs
+            pass
+    
+    return observed_apartments
+
+def is_apartment_observed(apartment_id: str, user_id: str) -> bool:
+    """Check if apartment is observed by user"""
+    observations_collection = get_collection("apartment_observations")
+    
+    observation = observations_collection.find_one({
+        "apartment_id": apartment_id,
+        "user_id": user_id
+    })
+    
+    return observation is not None 

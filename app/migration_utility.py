@@ -90,8 +90,18 @@ def migrate_users():
     sql_users = db.query(User).all()
     logger.info(f"Found {len(sql_users)} users in MySQL database")
     
+    # Track processed users
+    processed_users = set()
+    
     # Convert and insert into MongoDB
     for user in sql_users:
+        # Skip if this is a duplicate email (emails should be unique)
+        if user.email in processed_users:
+            logger.warning(f"Skipping duplicate user: {user.email}")
+            continue
+            
+        processed_users.add(user.email)
+        
         mongo_user = {
             "email": user.email,
             "password": user.password,
@@ -104,11 +114,22 @@ def migrate_users():
             "last_login": user.last_login
         }
         
-        # Insert into MongoDB
-        result = users_collection.insert_one(mongo_user)
+        # Insert into MongoDB using upsert
+        result = users_collection.update_one(
+            {"email": user.email},
+            {"$set": mongo_user},
+            upsert=True
+        )
+        
+        # Get the ID
+        if result.upserted_id:
+            user_id = result.upserted_id
+        else:
+            doc = users_collection.find_one({"email": user.email})
+            user_id = doc["_id"]
         
         # Store the user ID mapping for later use
-        id_mapping["users"][user.id] = str(result.inserted_id)
+        id_mapping["users"][user.id] = str(user_id)
     
     logger.info(f"Successfully migrated {users_collection.count_documents({})} users to MongoDB")
 
@@ -130,18 +151,46 @@ def migrate_locations():
     logger.info(f"Found {len(sql_locations)} locations in MySQL database")
     
     # Convert and insert into MongoDB
+    processed_locations = set()  # Track locations to avoid duplicates
+    
     for location in sql_locations:
+        # Create a unique key to check for duplicates
+        location_key = (location.city, location.street, location.house_number)
+        
+        # Skip if we've already processed this location
+        if location_key in processed_locations:
+            logger.warning(f"Skipping duplicate location: {location_key}")
+            continue
+            
+        processed_locations.add(location_key)
+        
         mongo_location = {
             "city": location.city,
             "street": location.street,
             "house_number": location.house_number
         }
         
-        # Insert into MongoDB
-        result = locations_collection.insert_one(mongo_location)
+        # Insert into MongoDB using upsert to avoid duplicates
+        result = locations_collection.update_one(
+            {
+                "city": location.city,
+                "street": location.street,
+                "house_number": location.house_number
+            },
+            {"$set": mongo_location},
+            upsert=True
+        )
+        
+        # Get the ID (either newly inserted or existing)
+        if result.upserted_id:
+            location_id = result.upserted_id
+        else:
+            # Find the document to get its ID
+            doc = locations_collection.find_one(mongo_location)
+            location_id = doc["_id"]
         
         # Store the location ID mapping for later use
-        id_mapping["locations"][location.id] = str(result.inserted_id)
+        id_mapping["locations"][location.id] = str(location_id)
     
     logger.info(f"Successfully migrated {locations_collection.count_documents({})} locations to MongoDB")
 
@@ -163,23 +212,47 @@ def migrate_apartments():
     sql_apartments = db.query(Apartment).all()
     logger.info(f"Found {len(sql_apartments)} apartments in MySQL database")
     
+    # Track processed apartments
+    processed_apartments = set()
+    
     # Convert and insert into MongoDB
     for apartment in sql_apartments:
+        # Skip if this is a duplicate title/owner combination (simple deduplication)
+        unique_key = (apartment.title, apartment.owner_id)
+        if unique_key in processed_apartments:
+            logger.warning(f"Skipping duplicate apartment: {apartment.title} (owner ID: {apartment.owner_id})")
+            continue
+            
+        processed_apartments.add(unique_key)
+        
         # Get the location
         location_id = id_mapping["locations"].get(apartment.location_id)
         location = locations_collection.find_one({"_id": location_id}) if location_id else None
         
         # If location not found, create a placeholder
-        if not location:
+        if not location and apartment.location_id:
             loc = db.query(Location).filter(Location.id == apartment.location_id).first()
             if loc:
-                location = {
+                mongo_location = {
                     "city": loc.city,
                     "street": loc.street,
                     "house_number": loc.house_number
                 }
-                result = locations_collection.insert_one(location)
-                location["_id"] = result.inserted_id
+                
+                # Use upsert to avoid duplicate entries
+                result = locations_collection.update_one(
+                    mongo_location,
+                    {"$set": mongo_location},
+                    upsert=True
+                )
+                
+                if result.upserted_id:
+                    location_id = result.upserted_id
+                else:
+                    doc = locations_collection.find_one(mongo_location)
+                    location_id = doc["_id"]
+                    
+                location = locations_collection.find_one({"_id": location_id})
         
         # Map the owner_id
         owner_id = id_mapping["users"].get(apartment.owner_id)
@@ -199,11 +272,25 @@ def migrate_apartments():
             "moderated_at": apartment.moderated_at
         }
         
-        # Insert into MongoDB
-        result = apartments_collection.insert_one(mongo_apartment)
+        # Insert into MongoDB using upsert
+        result = apartments_collection.update_one(
+            {
+                "title": apartment.title,
+                "owner_id": owner_id
+            },
+            {"$set": mongo_apartment},
+            upsert=True
+        )
         
+        # Get the ID
+        if result.upserted_id:
+            apartment_id = result.upserted_id
+        else:
+            doc = apartments_collection.find_one({"title": apartment.title, "owner_id": owner_id})
+            apartment_id = doc["_id"]
+            
         # Store the apartment ID mapping for later use
-        id_mapping["apartments"][apartment.id] = str(result.inserted_id)
+        id_mapping["apartments"][apartment.id] = str(apartment_id)
     
     logger.info(f"Successfully migrated {apartments_collection.count_documents({})} apartments to MongoDB")
 

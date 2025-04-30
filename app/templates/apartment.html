@@ -25,6 +25,20 @@
     <button>Видалити</button>
   </form>
   {% else %}
+  
+  {% if current_user %}
+  <!-- Observation button -->
+  {% if is_observed %}
+  <button id="observeBtn" class="observed" onclick="toggleObservation('{{ apartment.id }}')">
+    ★ В закладках
+  </button>
+  {% else %}
+  <button id="observeBtn" onclick="toggleObservation('{{ apartment.id }}')">
+    ☆ В закладки
+  </button>
+  {% endif %}
+  {% endif %}
+
   <form action="">
     <button>Забронювати</button>
   </form>
@@ -53,6 +67,56 @@
         });
     }
   }
+
+  function toggleObservation(apartmentId) {
+    const observeBtn = document.getElementById('observeBtn');
+    const isObserved = observeBtn.classList.contains('observed');
+    
+    // Create headers
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    // If already observed, remove from observations
+    if (isObserved) {
+      fetch(`/apartments/${apartmentId}/observe`, {
+        method: 'DELETE',
+        headers: headers,
+        credentials: 'same-origin'
+      })
+      .then(response => response.json())
+      .then(data => {
+        observeBtn.classList.remove('observed');
+        observeBtn.textContent = '☆ В закладки';
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+    }
+    // Otherwise, add to observations
+    else {
+      fetch(`/apartments/${apartmentId}/observe`, {
+        method: 'POST',
+        headers: headers,
+        credentials: 'same-origin'
+      })
+      .then(response => response.json())
+      .then(data => {
+        observeBtn.classList.add('observed');
+        observeBtn.textContent = '★ В закладках';
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+    }
+  }
 </script>
+
+<style>
+  button.observed {
+    background-color: #ffc107;
+    color: #000;
+  }
+</style>
 
 {% endblock %}

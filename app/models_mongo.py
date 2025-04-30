@@ -105,3 +105,27 @@ class Apartment:
             doc['location'] = convert_object_id(doc['location'])
             
         return doc 
+
+class ApartmentObservation:
+    @staticmethod
+    def create(
+        apartment_id: str,
+        user_id: str
+    ) -> Dict[str, Any]:
+        """Create an apartment observation document"""
+        now = datetime.utcnow()
+        return {
+            "apartment_id": apartment_id,
+            "user_id": user_id,
+            "created_at": now
+        }
+
+    @staticmethod
+    def from_db(observation_doc: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert observation document from database to observation model"""
+        if not observation_doc:
+            return None
+        
+        # Convert the main document ID
+        doc = convert_object_id(observation_doc)
+        return doc 

@@ -225,11 +225,17 @@ async def show_apartment_page(
     owner = crud.get_user_by_id(apartment["owner_id"])
     is_owner = current_user is not None and current_user["id"] == apartment["owner_id"]
     
+    # Check if apartment is observed by current user
+    is_observed = False
+    if current_user:
+        is_observed = crud.is_apartment_observed(apartment_id, current_user["id"])
+    
     return templates.TemplateResponse("apartment.html", {
         "request": request,
         "apartment": apartment,
         "owner": owner,
         "is_owner": is_owner,
+        "is_observed": is_observed,
         "current_user": current_user
     })
 
@@ -241,7 +247,15 @@ def create_apartment(
     """Create new apartment"""
     current_user = get_current_user(request)
     apartment = crud.create_apartment(apartment, current_user["id"])
-    return apartment
+    # Return with id explicitly to avoid 'undefined' errors in the frontend
+    return {
+        "id": apartment["id"],
+        "title": apartment["title"],
+        "description": apartment["description"],
+        "price": apartment["price"],
+        "status": apartment["status"],
+        "created_at": apartment["created_at"]
+    }
 
 @app.get("/apartments/{apartment_id}/edit/")
 def get_edit_apartment_page(
@@ -479,6 +493,45 @@ def get_city_stats(request: Request):
         })
     
     return formatted_results
+
+# Apartment observation routes
+@app.post("/apartments/{apartment_id}/observe")
+def observe_apartment_endpoint(
+    apartment_id: str,
+    request: Request
+):
+    """Add apartment to user's observation list"""
+    current_user = get_current_user(request)
+    
+    observation = crud.observe_apartment(apartment_id, current_user["id"])
+    if not observation:
+        raise HTTPException(status_code=404, detail="Apartment not found")
+    
+    return {"status": "success", "observed": True}
+
+@app.delete("/apartments/{apartment_id}/observe")
+def remove_observation_endpoint(
+    apartment_id: str,
+    request: Request
+):
+    """Remove apartment from user's observation list"""
+    current_user = get_current_user(request)
+    
+    result = crud.remove_observation(apartment_id, current_user["id"])
+    return {"status": "success", "observed": False}
+
+@app.get("/profile/observations")
+def show_observations_page(request: Request):
+    """Show user's observed apartments page"""
+    current_user = get_current_user(request)
+    
+    observed_apartments = crud.get_user_observations(current_user["id"])
+    
+    return templates.TemplateResponse("observations.html", {
+        "request": request,
+        "apartments": observed_apartments,
+        "current_user": current_user
+    })
 
 # Exception handlers
 
