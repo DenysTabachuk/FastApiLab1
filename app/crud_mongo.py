@@ -144,8 +144,15 @@ def create_apartment(apartment: schemas.ApartmentCreate, current_user_id: str) -
 def get_apartment(apartment_id: str) -> Dict[str, Any]:
     """Get apartment by ID"""
     apartments_collection = get_collection("apartments")
-    apartment = apartments_collection.find_one({"_id": ObjectId(apartment_id)})
-    return Apartment.from_db(apartment)
+    
+    # Handle invalid ObjectIDs
+    try:
+        if not apartment_id or apartment_id == "undefined":
+            return None
+        apartment = apartments_collection.find_one({"_id": ObjectId(apartment_id)})
+        return Apartment.from_db(apartment)
+    except Exception:
+        return None
 
 def get_user_apartments(user_id: str) -> List[Dict[str, Any]]:
     """Get all apartments owned by a user"""
@@ -282,31 +289,38 @@ def observe_apartment(apartment_id: str, user_id: str) -> Dict[str, Any]:
     """Add apartment to user's observation list"""
     observations_collection = get_collection("apartment_observations")
     
-    # Check if apartment exists
-    apartment = get_apartment(apartment_id)
-    if not apartment:
+    # Handle invalid ObjectIDs
+    try:
+        if not apartment_id or apartment_id == "undefined" or not user_id:
+            return None
+        
+        # Check if apartment exists
+        apartment = get_apartment(apartment_id)
+        if not apartment:
+            return None
+        
+        # Check if already observed
+        existing = observations_collection.find_one({
+            "apartment_id": apartment_id,
+            "user_id": user_id
+        })
+        
+        if existing:
+            return ApartmentObservation.from_db(existing)
+        
+        # Create observation
+        observation_data = ApartmentObservation.create(
+            apartment_id=apartment_id,
+            user_id=user_id
+        )
+        
+        # Insert into database
+        result = observations_collection.insert_one(observation_data)
+        observation_data["_id"] = result.inserted_id
+        
+        return ApartmentObservation.from_db(observation_data)
+    except Exception:
         return None
-    
-    # Check if already observed
-    existing = observations_collection.find_one({
-        "apartment_id": apartment_id,
-        "user_id": user_id
-    })
-    
-    if existing:
-        return ApartmentObservation.from_db(existing)
-    
-    # Create observation
-    observation_data = ApartmentObservation.create(
-        apartment_id=apartment_id,
-        user_id=user_id
-    )
-    
-    # Insert into database
-    result = observations_collection.insert_one(observation_data)
-    observation_data["_id"] = result.inserted_id
-    
-    return ApartmentObservation.from_db(observation_data)
 
 def remove_observation(apartment_id: str, user_id: str) -> bool:
     """Remove apartment from user's observation list"""
@@ -345,9 +359,15 @@ def is_apartment_observed(apartment_id: str, user_id: str) -> bool:
     """Check if apartment is observed by user"""
     observations_collection = get_collection("apartment_observations")
     
-    observation = observations_collection.find_one({
-        "apartment_id": apartment_id,
-        "user_id": user_id
-    })
-    
-    return observation is not None 
+    try:
+        if not apartment_id or apartment_id == "undefined" or not user_id:
+            return False
+            
+        observation = observations_collection.find_one({
+            "apartment_id": apartment_id,
+            "user_id": user_id
+        })
+        
+        return observation is not None
+    except Exception:
+        return False 

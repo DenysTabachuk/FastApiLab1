@@ -113,7 +113,8 @@
   
     if (response.ok) {
       const responseData = await response.json();
-      window.location.href = responseData.redirect_url;
+      const apartmentId = responseData.id;
+      window.location.href = `/apartments/${apartmentId}`;
     } else {
       console.error("Помилка:", await response.text());
     }

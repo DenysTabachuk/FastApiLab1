@@ -21,7 +21,7 @@
   <form action="/apartments/{{ apartment.id }}/edit/" method="get">
     <button>Редагувати</button>
   </form>
-  <form onSubmit="deleteApartment({{ apartment.id }})">
+  <form onsubmit="deleteApartment('{{ apartment.id }}'); return false;">
     <button>Видалити</button>
   </form>
   {% else %}
